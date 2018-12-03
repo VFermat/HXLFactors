@@ -27,8 +27,8 @@ class HXLFactors(object):
         self.marketcap = marketcap
         self.high_IA = ['BHIAHR', 'BHIAMR', 'BHIALR', 'SHIAHR', 'SHIAMR', 'SHIALR']
         self.low_IA = ['BLIAHR', 'BLIAMR', 'BLIALR', 'SLIAHR', 'SLIAMR', 'SLIALR']
-        self.high_roe = ['BHIAHR', 'BMIAHR', 'BLIAHR', 'SHIAHR', 'SMIAHR', 'SLIAHR']
-        self.low_roe = ['BHIALR', 'BMIALR', 'BLIALR', 'SHIALR', 'SMIALR', 'SLIALR']
+        self.high_ROE = ['BHIAHR', 'BMIAHR', 'BLIAHR', 'SHIAHR', 'SMIAHR', 'SLIAHR']
+        self.low_ROE = ['BHIALR', 'BMIALR', 'BLIALR', 'SHIALR', 'SMIALR', 'SLIALR']
         
         stocks = pd.DataFrame(index=self.prices.index)
         stocks["Prices"] = self.prices[self.prices.columns[0]]
@@ -49,24 +49,33 @@ class HXLFactors(object):
             new_stocks["ROE"] = self.ROE[self.ROE.columns[month]]
             new_stocks["marketcap"] = self.marketcap[self.marketcap.columns[month]]
             
-            if "june" in new_stocks.columns[month]:
-                new_stocks["I/A"] = self._get_IA(self.stocks["Assets"], new_stocks["Assets"])
+            if month != 1:
+                new_stocks["clssize"] = self.stocks["clssize"]
+                new_stocks["clsI/A"] = self.stocks["clsI/A"]
+            
+            if "june" in self.prices.columns[month]:
+                new_stocks["I/A"] = self._get_IA(self.stocks, new_stocks)
             else:
                 new_stocks["I/A"] = self.stocks["I/A"]
                 
-            new_stocks["returns"] = self._get_returns(self.stocks["Prices"], new_stocks["Prices"])
             new_stocks = self.classify_stocks(new_stocks, self.prices.columns[month])
             
-            portfolios = self._get_portfolios(new_stocks)
-            portfolios_return = pd.DataFrame(index=portfolios.keys, column=["prtflreturn"])
-            portfolios_return["prtflreturn"] = portfolios_return.apply(self._get_portfolio_return, args=(self.stocks, new_stocks))
-            high_IA = portfolios_return[portfolios_return.index in self.high_IA].prtflreturn
-            low_IA = portfolios_return[portfolios_return.index in self.low_IA].prtflreturn
-            high_ROE = portfolios_return[portfolios_return.index in self.high_ROE].prtflreturn
-            low_ROE = portfolios_return[portfolios_return.index in self.low_ROE].prtflreturn
-            HXLInvestment = self._factor(high_IA, low_IA)
-            HXLProfitability = self._factor(high_ROE, low_ROE)
-            self.factors[self.prices.columns[month]] = pd.Series([HXLInvestment, HXLProfitability])
+            if month != 1:
+                portfolios = [key for key in self._get_portfolios(new_stocks)]
+                portfolios_return = pd.DataFrame(index=portfolios, columns=["prtflreturn"])
+                portfolios_return["prtflreturn"] = [self._get_returns(self.stocks, new_stocks, prtfl) for prtfl in portfolios]
+                try:
+                    high_IA = portfolios_return.loc[self.high_IA].prtflreturn
+                except:
+                    continue
+                low_IA = portfolios_return.loc[self.low_IA].prtflreturn
+                high_ROE = portfolios_return.loc[self.high_ROE].prtflreturn
+                low_ROE = portfolios_return.loc[self.low_ROE].prtflreturn
+                HXLInvestment = self._factor(high_IA, low_IA)
+                HXLProfitability = self._factor(high_ROE, low_ROE)
+                self.factors[self.prices.columns[month]] = pd.Series([HXLInvestment, HXLProfitability])
+                
+            self.stocks = new_stocks
         
     def classify_stocks(self, stocks, month):
         """
@@ -80,15 +89,15 @@ class HXLFactors(object):
         classified_stocks = stocks.copy()
         
         if "june" in month:
-            classified_stocks['sizemdn'] = np.median(classified_stocks['marketcap'])
+            classified_stocks['sizemdn'] = classified_stocks['marketcap'].median()
             classified_stocks['clssize'] = classified_stocks.apply(self._size_class, axis=1)
-            classified_stocks['I/A30%'] = np.percentile(classified_stocks['I/A'], 30)
-            classified_stocks['I/A70%'] = np.percentile(classified_stocks['I/A'], 70)
+            classified_stocks['I/A30%'] = np.nanpercentile(classified_stocks['I/A'], 30)
+            classified_stocks['I/A70%'] = np.nanpercentile(classified_stocks['I/A'], 70)
             classified_stocks['clsI/A'] = classified_stocks.apply(self._IA_class, axis=1)
         
         
-        classified_stocks['ROE30%'] = np.percentile(classified_stocks['ROE'], 30)
-        classified_stocks['ROE70%'] = np.percentile(classified_stocks['ROE'], 70)
+        classified_stocks['ROE30%'] = np.nanpercentile(classified_stocks['ROE'], 30)
+        classified_stocks['ROE70%'] = np.nanpercentile(classified_stocks['ROE'], 70)
         classified_stocks['clsROE'] = classified_stocks.apply(self._ROE_class, axis=1)
         classified_stocks['stockcls'] = classified_stocks['clssize'] + classified_stocks['clsI/A'] + classified_stocks['clsROE']
     
@@ -126,25 +135,31 @@ class HXLFactors(object):
         return portfolios
     
     @staticmethod
-    def _get_returns(row, stocks, new_stocks):
-        stocks_used = stocks[stocks["stockcls"] == row.index]
-        new_stocks_used = new_stocks[new_stocks["stockcls"] == row.index]
-        new_stocks_used["price_difference"] = (new_stocks_used["prices"] - stocks_used["prices"])/stocks_used["prices"]
+    def _get_returns(stocks, new_stocks, stockcls):
+        stocks_used = stocks[stocks["stockcls"] == stockcls]
+        new_stocks_used = new_stocks[new_stocks["stockcls"] == stockcls]
+        new_stocks_used["price_difference"] = (new_stocks_used["Prices"] - stocks_used["Prices"])/stocks_used["Prices"]
         treturn = np.sum(new_stocks_used["price_difference"]*new_stocks_used["marketcap"])
         tweight = np.sum(new_stocks_used["marketcap"])
         portfolio_return = treturn/tweight
         return portfolio_return
+    
+    @staticmethod
+    def _get_IA(stocks, new_stocks):
+        investment = new_stocks['Assets'] - stocks['Assets']
+        IA = investment/new_stocks['Assets']
+        return IA
         
     
     @staticmethod
     def _size_class(row):
         """ Classifies a Stock based on its Size and its rank among all other stocks """
-        if row['marketcap'] <= row['sizemdn']:
-            value = 'S'
-        elif row['marketcap'] > row['sizemdn']:
-            value = 'B'
-        elif row['marketcap'] == np.nan:
+        if row['marketcap'] == np.nan:
             value = np.nan
+        elif row['marketcap'] <= row['sizemdn']:
+            value = 'S'
+        else:
+            value = 'B'
         return value
     
     @staticmethod
