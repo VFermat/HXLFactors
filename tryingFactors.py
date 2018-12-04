@@ -54,8 +54,9 @@ factor = HXLFactors(prices, assets, ROE, marketcap)
 
 factor.calculate_factor()
 
-HXLProfitability = factor.factors.loc["HXLProfitability"]
+factorr = factor.factors
 
-HXLProfitability.mean()
+factorr = factorr.iloc[:, 21:]
 
-stocks = factor.stocks
+factorr = factorr.transpose()
+means = factorr.mean()

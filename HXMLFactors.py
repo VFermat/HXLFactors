@@ -60,7 +60,7 @@ class HXLFactors(object):
                 new_stocks["ROE"] = self.ROE[self.time[month]]
                 
             #Updating I/A ratio
-            if "july" in self.time[month]:
+            if "june" in self.time[month]:
                 new_stocks["I/A"] = self._get_IA(new_stocks, self.time[month])
             
             #Re-classifing stocks
@@ -116,12 +116,13 @@ class HXLFactors(object):
     def _get_IA(self, new_stocks, month):
         actual_year = int(month[:4])
         last_year = actual_year - 1
-        try:
-            last_asset = self.stocks[str(last_year) + "july"]
+        if last_year != 2008:
+            last_asset = self.assets[str(last_year) + "june"]
             investment = new_stocks['Assets'] - last_asset
             IA = investment/new_stocks['Assets']
-        except:
+        else:
             IA = 0
+        
         return IA
     
     @staticmethod
@@ -203,40 +204,7 @@ class HXLFactors(object):
         return value
     
 """
-Algorithm:
-    Receive Stocks Data;
-    Compute I/A for all stocks at the end of every June.
-    Compute monthly ROE for all stocks.
-    Do every month:
-        Start Sorting:
-            Create 3 specific DataFrames:
-                Size; I/A, ROE
-            If Is June:
-                For size:
-                    Grab the Median Market Cap for the stocks
-                    Top will be B
-                    Bottom will be S
-                For I/A:
-                    Rank stocks based on I/A.
-                    Top 30% Will be HIA
-                    Middle 40% Will be MIA
-                    Bottom 30% will be LIA
-            For ROE:
-                Rank stocks based on ROE.
-                Top 30% will be HR
-                Middle 40% will be MR
-                Bottom 30% will be LR
-        Create Portfolio:
-            Take the intersection of the sorted DataFrames and classify the stocks. (example: BHIALR - Big, High I/A, Low ROE)
-            Calculate each stock`s return for the month.
-            Get 6 HIA portfolios (BHIAHR, BHIAMR, BHIALR, SHIAHR, SHIAMR, SHIALR)
-            Get 6 LIA portfolios (BLIAHR, BLIAMR, BLIALR, SLIAHR, SLIAMR, SLIALR)
-            Get 6 HR portfolios
-            Get 6 LR portfolios
-        Get returns:
-            Get value-weighted return for each portfolio.
-            Get simple average return for each group (HIA, LIA, HR, LR)
-        Calculate Factors:
-            Ria = Average(HIA) - Average(LIA)
-            Rroe = Average(HR) - Average(LR)
+To Do:
+    Create Class to standardize all worksheets passed to the Factor Constructor
+    Add Dividends to the return
 """
