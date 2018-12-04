@@ -36,46 +36,56 @@ class HXLFactors(object):
         stocks["ROE"] = self.ROE[self.ROE.columns[0]]
         stocks["marketcap"] = self.marketcap[self.marketcap.columns[0]]
         stocks["I/A"] = 0
+        stocks['sizemdn'] = stocks['marketcap'].median()
+        stocks['clssize'] = stocks.apply(self._size_class, axis=1)
+        stocks['I/A30%'] = 0
+        stocks['I/A70%'] = 0
+        stocks['clsI/A'] = stocks.apply(self._IA_class, axis=1)
         self.stocks = stocks
+        
+        self.time = self.prices.columns
         
     def calculate_factor(self):
         
         self.factors = pd.DataFrame(index=["HXLInvestment", "HXLProfitability"])
         
-        for month in range(1, self.prices.shape[1]):
-            new_stocks = pd.DataFrame(index=self.prices.index) 
-            new_stocks["Prices"] = self.prices[self.prices.columns[month]]
-            new_stocks["Assets"] = self.assets[self.assets.columns[month]]
-            new_stocks["ROE"] = self.ROE[self.ROE.columns[month]]
-            new_stocks["marketcap"] = self.marketcap[self.marketcap.columns[month]]
+        for month in range(1, len(self.time)):
             
-            if month != 1:
-                new_stocks["clssize"] = self.stocks["clssize"]
-                new_stocks["clsI/A"] = self.stocks["clsI/A"]
-            
-            if "june" in self.prices.columns[month]:
-                new_stocks["I/A"] = self._get_IA(self.stocks, new_stocks)
-            else:
-                new_stocks["I/A"] = self.stocks["I/A"]
+            #Updating stocks infos
+            new_stocks = self.stocks.copy()
+            new_stocks["Prices"] = self.prices[self.time[month]]
+            new_stocks["marketcap"] = self.marketcap[self.time[month]]
+            if self.time[month] in self.assets.columns:
+                new_stocks["Assets"] = self.assets[self.time[month]]
+                new_stocks["ROE"] = self.ROE[self.time[month]]
                 
-            new_stocks = self.classify_stocks(new_stocks, self.prices.columns[month])
+            #Updating I/A ratio
+            if "july" in self.time[month]:
+                new_stocks["I/A"] = self._get_IA(new_stocks, self.time[month])
+            
+            #Re-classifing stocks
+            new_stocks = self.classify_stocks(new_stocks, self.time[month])
             
             if month != 1:
+                #Getting Portfolios
                 portfolios = [key for key in self._get_portfolios(new_stocks)]
-                portfolios_return = pd.DataFrame(index=portfolios, columns=["prtflreturn"])
-                portfolios_return["prtflreturn"] = [self._get_returns(self.stocks, new_stocks, prtfl) for prtfl in portfolios]
-                try:
-                    high_IA = portfolios_return.loc[self.high_IA].prtflreturn
-                except:
-                    continue
-                low_IA = portfolios_return.loc[self.low_IA].prtflreturn
-                high_ROE = portfolios_return.loc[self.high_ROE].prtflreturn
-                low_ROE = portfolios_return.loc[self.low_ROE].prtflreturn
-                HXLInvestment = self._factor(high_IA, low_IA)
+                portfolios_return = pd.DataFrame(index=portfolios, columns=["prtfreturns"])
+                portfolios_return["prtfreturns"] = [self._get_returns(self.stocks, new_stocks, prtf) for prtf in portfolios] 
+                try:   
+                    high_IA = portfolios_return.loc[self.high_IA].prtfreturns
+                    low_IA = portfolios_return.loc[self.low_IA].prtfreturns
+                    HXLInvestment = self._factor(high_IA, low_IA)
+                except: 
+                    HXLInvestment = 0
+                high_ROE = portfolios_return.loc[self.high_ROE].prtfreturns
+                low_ROE = portfolios_return.loc[self.low_ROE].prtfreturns
+                    
+                #Calculating Factors
                 HXLProfitability = self._factor(high_ROE, low_ROE)
-                self.factors[self.prices.columns[month]] = pd.Series([HXLInvestment, HXLProfitability])
+                self.factors[self.time[month]] = [HXLInvestment, HXLProfitability]
                 
             self.stocks = new_stocks
+            
         
     def classify_stocks(self, stocks, month):
         """
@@ -102,6 +112,17 @@ class HXLFactors(object):
         classified_stocks['stockcls'] = classified_stocks['clssize'] + classified_stocks['clsI/A'] + classified_stocks['clsROE']
     
         return classified_stocks    
+    
+    def _get_IA(self, new_stocks, month):
+        actual_year = int(month[:4])
+        last_year = actual_year - 1
+        try:
+            last_asset = self.stocks[str(last_year) + "july"]
+            investment = new_stocks['Assets'] - last_asset
+            IA = investment/new_stocks['Assets']
+        except:
+            IA = 0
+        return IA
     
     @staticmethod
     def _factor(high_returns, low_returns):
@@ -143,13 +164,6 @@ class HXLFactors(object):
         tweight = np.sum(new_stocks_used["marketcap"])
         portfolio_return = treturn/tweight
         return portfolio_return
-    
-    @staticmethod
-    def _get_IA(stocks, new_stocks):
-        investment = new_stocks['Assets'] - stocks['Assets']
-        IA = investment/new_stocks['Assets']
-        return IA
-        
     
     @staticmethod
     def _size_class(row):

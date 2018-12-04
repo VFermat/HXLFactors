@@ -24,16 +24,16 @@ months = {
         }
 
 prices = pd.read_excel('DataSet.xlsx', sheet_name=0, index_col=0)
-prices = prices.drop(labels=prices.columns[0:11], axis=1)
+prices = prices.drop(labels=prices.columns[0], axis=1)
 
 ROE = pd.read_excel('DataSet.xlsx', sheet_name=1, index_col=0)
-ROE = ROE.drop(labels=ROE.columns[0:11], axis=1)
+ROE = ROE.drop(labels=ROE.columns[0], axis=1)
 
-marketcap = pd.read_excel('DataSet.xlsx', sheet_name=0, index_col=0)
-marketcap = marketcap.drop(labels=marketcap.columns[0:11], axis=1)
+marketcap = pd.read_excel('DataSet.xlsx', sheet_name=2, index_col=0)
+marketcap = marketcap.drop(labels=marketcap.columns[0], axis=1)
 
-assets = pd.read_excel('DataSet.xlsx', sheet_name=0, index_col=0)
-assets = assets.drop(labels=assets.columns[0:11], axis=1)
+assets = pd.read_excel('DataSet.xlsx', sheet_name=3, index_col=0)
+assets = assets.drop(labels=assets.columns[0], axis=1)
 
 def change_columns(column):
     date = str(column).split()
@@ -51,6 +51,11 @@ assets.columns = assets.columns.to_series().apply(change_columns)
 
 factor = HXLFactors(prices, assets, ROE, marketcap)
 
-factor.factors
 
 factor.calculate_factor()
+
+HXLProfitability = factor.factors.loc["HXLProfitability"]
+
+HXLProfitability.mean()
+
+stocks = factor.stocks
