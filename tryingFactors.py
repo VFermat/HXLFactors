@@ -35,6 +35,8 @@ marketcap = marketcap.drop(labels=marketcap.columns[0], axis=1)
 assets = pd.read_excel('DataSet.xlsx', sheet_name=3, index_col=0)
 assets = assets.drop(labels=assets.columns[0], axis=1)
 
+pan = pd.Panel(data=[prices, ROE, marketcap, assets])
+
 def change_columns(column):
     date = str(column).split()
     date = date[0].split('-')

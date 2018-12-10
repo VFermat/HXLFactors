@@ -10,7 +10,7 @@ import pandas as pd
 
 class HXLFactors(object):
     
-    def __init__(self, prices, assets, ROE, marketcap):
+    def __init__(self, prices, assets, ROE, marketcap, dividends):
         """
         Initializes the class creating the initial pandas DataFrame to be used on the 
         construction of the factors.
@@ -25,6 +25,7 @@ class HXLFactors(object):
         self.assets = assets
         self.ROE = ROE
         self.marketcap = marketcap
+        self.dividends = dividends
         self.high_IA = ['BHIAHR', 'BHIAMR', 'BHIALR', 'SHIAHR', 'SHIAMR', 'SHIALR']
         self.low_IA = ['BLIAHR', 'BLIAMR', 'BLIALR', 'SLIAHR', 'SLIAMR', 'SLIALR']
         self.high_ROE = ['BHIAHR', 'BMIAHR', 'BLIAHR', 'SHIAHR', 'SMIAHR', 'SLIAHR']
@@ -58,6 +59,10 @@ class HXLFactors(object):
             if self.time[month] in self.assets.columns:
                 new_stocks["Assets"] = self.assets[self.time[month]]
                 new_stocks["ROE"] = self.ROE[self.time[month]]
+            if self.time[month] in self.dividends.columns:
+                new_stocks["Dividends"] = self.dividends[self.time[month]]
+            else:
+                new_stocks["Dividends"] = 0 
                 
             #Updating I/A ratio
             if "june" in self.time[month]:
@@ -119,7 +124,7 @@ class HXLFactors(object):
         if last_year != 2008:
             last_asset = self.assets[str(last_year) + "june"]
             investment = new_stocks['Assets'] - last_asset
-            IA = investment/new_stocks['Assets']
+            IA = investment/last_asset
         else:
             IA = 0
         
@@ -161,7 +166,9 @@ class HXLFactors(object):
         stocks_used = stocks[stocks["stockcls"] == stockcls]
         new_stocks_used = new_stocks[new_stocks["stockcls"] == stockcls]
         new_stocks_used["price_difference"] = (new_stocks_used["Prices"] - stocks_used["Prices"])/stocks_used["Prices"]
-        treturn = np.sum(new_stocks_used["price_difference"]*new_stocks_used["marketcap"])
+        s_return = new_stocks_used["Dividends"] + new_stocks_used["price_difference"]
+        
+        treturn = np.sum(s_return*new_stocks_used["marketcap"])
         tweight = np.sum(new_stocks_used["marketcap"])
         portfolio_return = treturn/tweight
         return portfolio_return
@@ -205,6 +212,5 @@ class HXLFactors(object):
     
 """
 To Do:
-    Create Class to standardize all worksheets passed to the Factor Constructor
-    Add Dividends to the return
+    VITOR YOU ARE AN IDIOT. WORK WITH PANELS. SMARTER.
 """
