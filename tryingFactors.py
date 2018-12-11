@@ -35,7 +35,17 @@ marketcap = marketcap.drop(labels=marketcap.columns[0], axis=1)
 assets = pd.read_excel('DataSet.xlsx', sheet_name=3, index_col=0)
 assets = assets.drop(labels=assets.columns[0], axis=1)
 
-pan = pd.Panel(data=[prices, ROE, marketcap, assets])
+dic = {
+       'assets': assets,
+       'ROE': ROE,
+       'prices': prices,
+       'marketcap': marketcap
+       }
+
+pan = pd.Panel(data=dic)
+
+pan['amr'] = pan['assets']/pan['marketcap']
+
 
 def change_columns(column):
     date = str(column).split()
