@@ -6,18 +6,38 @@ Created on Mon Dec 10 15:45:02 2018
 """
 
 import pandas as pd
-from pandas.tseries.offsets import *
+from pandas.tseries.offsets import MonthEnd
 
 class HXLFactors(object):
     
     def calculate_factors(self, prices, dividends, assets, ROE, marketcap):
         
-        # Creating Base Panel
-        self.securities = self._create_base_panel(prices, dividends, assets, ROE, marketcap)
+        # Lining up dates to end of month
+        prices.columns = prices.columns + MonthEnd(0)
+        dividends.columns = dividends.columns + MonthEnd(0)
+        assets.columns = assets.columns + MonthEnd(0)
+        ROE.columns = ROE.columns + MonthEnd(0)
+        marketcap.columns = marketcap.columns + MonthEnd(0)
+        
+        dividends, assets, ROE = self._padronize_columns(prices.columns, 
+                                                         dividends,
+                                                         assets,
+                                                         ROE)
+        
+        self.securities = {
+                'assets': assets,
+                'ROE': ROE,
+                'price': prices,
+                'marketcap': marketcap,
+                'dividends': dividends
+                }
+        
+        # Gathering info
         self.securities = self._get_IA_info(self.securities)
         self.securites = self._get_return(self.securities)
         self.securities = self._get_benchmarks(self.securities)
-        
+
+    
     @staticmethod        
     def _get_benchmarks(securities):
         pass
@@ -29,13 +49,13 @@ class HXLFactors(object):
     
         Parameters
         ----------
-        securities : Panel like
-            A panel containing the information on stocks. 
+        securities : Dict like
+            A dictionary containing the information on stocks. 
             
         Return
         ----------
-        n_securities : Panel
-            Updated panel containing the return for each security over time.
+        n_securities : Dict
+            Updated dict containing the return for each security over time.
         """
         
         n_securities = securities.copy()
@@ -59,13 +79,13 @@ class HXLFactors(object):
     
         Parameters
         ----------
-        securities : Panel like
-            A panel containing the information on stocks. 
+        securities : Dict like
+            A dict containing the information on stocks. 
             
         Return
         ----------
-        n_securities : Panel
-            Updated panel containing Investment over Assets ratio and related information.
+        n_securities : Dict
+            Updated dict containing Investment over Assets ratio and related information.
         """
         
         n_securities = securities.copy()
@@ -77,43 +97,56 @@ class HXLFactors(object):
         n_securities['I/A'] = n_securities['investment']/n_securities['lassets']
         
         return n_securities
-        
+    
     @staticmethod
-    def _create_base_panel(prices, dividends, assets, ROE, marketcap):
+    def _padronize_columns(pattern, dividends, assets, ROE):
         """
-        Method which creates the Base Panel for the class. We will calculate 
-        the factors based on calculations made upon this panel
+        Padronizes information that is not released monthly. In that way, we do not
+        encounter problems while manipulating data.
         
         Parameters
         ----------
-        prices : DataFrame like
-            DataFrame with securities prices along time
+        pattern : Array like
+            Array containing the pattern for the columns
         dividends : DataFrame like
-            DataFrame with securities given dividends per stock along time
+            Dataframe containing information on dividends
         assets : DataFrame like
-            DataFrame with securities assets along time
+            Dataframe containing information on assets
         ROE : DataFrame like
-            DataFrame with securities ROE along time
-        prices : DataFrame like
-            DataFrame with securities marketcap along time
-        
-        Returns
+            Dataframe containing information on ROE
+            
+        Return
         ----------
-        securities : Panel
-            A Panel containing consolidated information about the securities
-        
+        ndividends : Dataframe like
+            Updated Dataframe containing information on dividends
+        nassets : Dataframe like
+            Updated Dataframe containing information on assets
+        nROE : Dataframe like
+            Updated Dataframe containing information on ROE
         """
         
-        dic = {
-               'assets': assets,
-               'ROE': ROE,
-               'price': prices,
-               'marketcap': marketcap,
-               'dividends': dividends
-                }
+        ndividends = pd.DataFrame(index=dividends.index)
+        nassets = pd.DataFrame(index=assets.index)
+        nROE = pd.DataFrame(index=ROE.index)
         
-        securities = pd.Panel(data=dic)
-        return securities
+        for date in pattern:
+            
+            if date in dividends.columns:
+                ndividends[date] = dividends[date]
+            else:
+                ndividends[date] = 0
+                
+            if date in assets.columns:
+                nassets[date] = assets[date]
+                nROE[date] = ROE[date]
+            else:
+                nassets[date] = 0
+                nROE[date] = 0
+            
+        return ndividends, nassets, nROE
+            
+                
+    
     
     
 """
