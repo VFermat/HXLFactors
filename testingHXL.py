@@ -21,5 +21,3 @@ hxl.calculate_factors(prices, dividends, assets, ROE, marketcap)
 securities = hxl.securities
 
 HXLInvestment = hxl.HXLInvestment
-
-np.mean(HXLInvestment)
